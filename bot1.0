@@ -1,0 +1,387 @@
+using System;
+using System.Linq;
+using System.IO;
+using System.Text;
+using System.Collections;
+using System.Collections.Generic;
+
+/**
+ * Auto-generated code below aims at helping you parse
+ * the standard input according to the problem statement.
+ **/
+
+public class MainProgram
+{
+    static void Main(string[] args)
+    {
+        Board gameBoard = new Board();
+        // game loop
+        while (true)
+        {
+            gameBoard.ReadData();
+            gameBoard.ConsoleShowData();
+            gameBoard.Play();
+
+        }
+    }
+}
+public class Player
+{
+    public int PlayerHealth { get; set; }
+    public int PlayerMana { get; set; }
+    public int PlayerDeck { get; set; }
+    public int PlayerRune { get; set; }
+    public int PlayerDraw { get; set; }
+}
+
+public enum LocationType { Hand, PlayerBoard, OppBoard }
+public enum CardTypeEnum { Creature, ItemGreen, ItemRed, ItemBlue }
+public class Card
+{
+    public int CardNumber { get; set; }
+    public int InstanceId { get; set; }
+    public int Location { get; set; }
+    public int CardType { get; set; }
+    public int Cost { get; set; }
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public string Abilities { get; set; }
+    public int MyHealthChange { get; set; }
+    public int OpponentHealthChange { get; set; }
+    public int CardDraw { get; set; }
+
+    // My Extension
+    public LocationType CardLocation
+    {
+        get
+        {
+            if (this.Location == 0)
+            {
+                return LocationType.Hand;
+            }
+            else if (this.Location == 1)
+            {
+                return LocationType.PlayerBoard;
+            }
+            else if (this.Location == -1)
+            {
+                return LocationType.OppBoard;
+            }
+
+            return LocationType.Hand;
+        }
+        set
+        {
+            CardLocation = value;
+        }
+    }
+    public int PickIndex { get; set; }
+    public double Factor
+    {
+        get
+        {
+            double resultFactor = 0;
+            if (this.TypeOfCard == CardTypeEnum.Creature)
+            {
+                // Calculate Card Factor to be picked
+                // ATK = 2.5 DEF = 2 
+                // Ablility B = 2, C = 1, D = 2, D = 1, G = 3, L = 1, W = 1 
+                double baseFactor = (this.Attack * 1.5) + (this.Defense * 1) 
+                + (this.Ability_B ? 2 : 0) + (this.Ability_C ? 1 : 0) + (this.Ability_D ? 1 : 0)
+                + (this.Ability_G ? 3 : 0) + (this.Ability_L ? 1 : 0) + (this.Ability_W ? 1 : 0);
+                resultFactor = baseFactor / Cost;
+            }
+            return resultFactor;
+        }
+    }
+    public bool isAttack { get; set; }
+    public bool isDead
+    {
+        get
+        {
+            if (this.Defense > 0)
+            {
+                return false;
+            }
+            else
+                return true;
+        }
+    }
+
+    public bool Ability_B { get { return this.Abilities.Contains("B") ? true : false; } }
+    public bool Ability_C { get { return this.Abilities.Contains("C") ? true : false; } }
+    public bool Ability_D { get { return this.Abilities.Contains("D") ? true : false; } }
+    public bool Ability_G { get { return this.Abilities.Contains("G") ? true : false; } }
+    public bool Ability_L { get { return this.Abilities.Contains("L") ? true : false; } }
+    public bool Ability_W { get { return this.Abilities.Contains("W") ? true : false; } }
+
+    public CardTypeEnum TypeOfCard
+    {
+        get
+        {
+            if (this.CardType == 0) return CardTypeEnum.Creature;
+            else if (this.CardType == 1) return CardTypeEnum.ItemGreen;
+            else if (this.CardType == 2) return CardTypeEnum.ItemBlue;
+            else if (this.CardType == 3) return CardTypeEnum.ItemRed;
+            else return CardTypeEnum.Creature;
+        }
+    }
+
+
+    public Card()
+    {
+        this.isAttack = false;
+    }
+}
+
+public class Board
+{
+    public Player p1 { get; set; }
+    public Player p2 { get; set; }
+    public List<Card> CurrentCards { get; set; }
+
+
+    public int opponentHand { get; set; }
+    public int opponentActions { get; set; }
+
+    public List<string> cardNumberAndActionList { get; set; }
+
+    public int CardCount { get; set; }
+    public string[] inputs { get; set; }
+
+    public Board()
+    {
+        p1 = new Player();
+        p2 = new Player();
+        CurrentCards = new List<Card>();
+        cardNumberAndActionList = new List<string>();
+    }
+
+    public void ReadData()
+    {
+        // P1 Data
+        string pureInput;
+
+        pureInput = Console.ReadLine();
+        //Console.Error.WriteLine("p1 input = " + pureInput);
+        inputs = pureInput.Split(' ');
+        this.p1.PlayerHealth = int.Parse(inputs[0]);
+        this.p1.PlayerMana = int.Parse(inputs[1]);
+        this.p1.PlayerDeck = int.Parse(inputs[2]);
+        this.p1.PlayerRune = int.Parse(inputs[3]);
+        this.p1.PlayerDraw = int.Parse(inputs[4]);
+
+        // P2 Data
+        pureInput = Console.ReadLine();
+        //Console.Error.WriteLine("p2 input = " + pureInput);
+        inputs = pureInput.Split(' ');
+        this.p2.PlayerHealth = int.Parse(inputs[0]);
+        this.p2.PlayerMana = int.Parse(inputs[1]);
+        this.p2.PlayerDeck = int.Parse(inputs[2]);
+        this.p2.PlayerRune = int.Parse(inputs[3]);
+        this.p2.PlayerDraw = int.Parse(inputs[4]);
+
+        // opponent Data
+        pureInput = Console.ReadLine();
+        //Console.Error.WriteLine("opp input = " + pureInput);
+        inputs = pureInput.Split(' ');
+        this.opponentHand = int.Parse(inputs[0]);
+        this.opponentActions = int.Parse(inputs[1]);
+        this.cardNumberAndActionList = new List<string>();
+        for (int i = 0; i < opponentActions; i++)
+        {
+            string cardNumberAndAction = Console.ReadLine();
+            cardNumberAndActionList.Add(cardNumberAndAction);
+        }
+
+        string inputCardCount = Console.ReadLine();
+        //Console.Error.WriteLine("cardCount input = " + inputCardCount);
+        this.CardCount = int.Parse(inputCardCount);
+
+
+        this.CurrentCards = new List<Card>();
+        for (int i = 0; i < CardCount; i++)
+        {
+            pureInput = Console.ReadLine();
+            //Console.Error.WriteLine("card input = " + pureInput);
+            inputs = pureInput.Split(' ');
+
+            Card readCard = new Card();
+
+            readCard.CardNumber = int.Parse(inputs[0]);
+            readCard.InstanceId = int.Parse(inputs[1]);
+            readCard.Location = int.Parse(inputs[2]);
+            readCard.CardType = int.Parse(inputs[3]);
+            readCard.Cost = int.Parse(inputs[4]);
+            readCard.Attack = int.Parse(inputs[5]);
+            readCard.Defense = int.Parse(inputs[6]);
+            readCard.Abilities = inputs[7];
+            readCard.MyHealthChange = int.Parse(inputs[8]);
+            readCard.OpponentHealthChange = int.Parse(inputs[9]);
+            readCard.CardDraw = int.Parse(inputs[10]);
+
+            CurrentCards.Add(readCard);
+        }
+    }
+
+    public void ConsoleShowData()
+    {
+        Console.Error.Write("p1 =");
+        Console.Error.Write(" " + p1.PlayerHealth);
+        Console.Error.Write(" " + p1.PlayerMana);
+        Console.Error.Write(" " + p1.PlayerDeck);
+        Console.Error.Write(" " + p1.PlayerRune);
+        Console.Error.Write(" " + p1.PlayerDraw);
+
+        Console.Error.WriteLine();
+
+        Console.Error.Write("p2 =");
+        Console.Error.Write(" " + p2.PlayerHealth);
+        Console.Error.Write(" " + p2.PlayerMana);
+        Console.Error.Write(" " + p2.PlayerDeck);
+        Console.Error.Write(" " + p2.PlayerRune);
+        Console.Error.Write(" " + p2.PlayerDraw);
+
+        Console.Error.WriteLine();
+
+        // Show Action
+        foreach (var action in this.cardNumberAndActionList)
+        {
+            Console.Error.Write("action =");
+            Console.Error.Write(" " + action);
+            Console.Error.WriteLine();
+        }
+
+        // Show Card Infomation
+        foreach (var c in CurrentCards)
+        {
+            Console.Error.Write("Card " + c.CardNumber + " =");
+            Console.Error.Write(" " + c.InstanceId);
+            Console.Error.Write(" " + c.CardLocation);
+            Console.Error.Write(" " + c.CardType);
+            Console.Error.Write(" " + c.Cost);
+            Console.Error.Write(" " + c.Attack);
+            Console.Error.Write(" " + c.Defense);
+            Console.Error.Write(" " + c.Abilities);
+            Console.Error.Write(" " + c.MyHealthChange);
+            Console.Error.Write(" " + c.OpponentHealthChange);
+            Console.Error.Write(" " + c.CardDraw);
+            Console.Error.WriteLine();
+        }
+
+    }
+
+    public void Play()
+    {
+        if (p1.PlayerMana == 0)
+        {
+            MakeDraft();
+        }
+        else
+        {
+            MakeBattle();
+        }
+
+    }
+
+    public void MakeDraft()
+    {
+        // Select Best from card factor logic in Card Class
+        Console.Error.Write("Factor =");
+        int index = 0;
+        foreach (var c in CurrentCards)
+        {
+            c.PickIndex = index;
+            index++;
+            Console.Error.Write(" " + c.CardNumber + " : " + String.Format("{0:N3}", c.Factor));
+        }
+        // Select Most Factor
+        double MaxFactor = CurrentCards.Max(o => o.Factor);
+        var MaxItem = CurrentCards.First(o => o.Factor == MaxFactor);
+        Console.Error.Write(" Select -> " + MaxItem.CardNumber);
+        Console.Error.WriteLine();
+
+
+        Console.WriteLine("PICK " + MaxItem.PickIndex);
+    }
+
+    public void MakeBattle()
+    {
+        // Location
+        // 0 : in the player's hand
+        // 1 : on the player's side of the board
+        //-1 : on the opponent's side of the board
+        List<Card> handCardList = CurrentCards.Where(o => o.Location == 0).ToList();
+        List<Card> playerBoardCardList = CurrentCards.Where(o => o.Location == 1).ToList();
+        List<Card> opponentBoardCardList = CurrentCards.Where(o => o.Location == -1).ToList();
+
+        string Order = "";
+        // Summon
+        if (handCardList.Count > 0)
+        {
+            // Summon Create First
+            foreach (var handCard in handCardList.OrderByDescending(o => o.Cost).Where(o => o.TypeOfCard == CardTypeEnum.Creature))
+            {
+                if (handCard.Cost <= p1.PlayerMana)
+                {
+                    // Can Summon
+                    p1.PlayerMana = p1.PlayerMana - handCard.Cost;
+                    Order += "SUMMON " + handCard.InstanceId + ";";
+                    // Remove from handCardList
+                    handCardList.Remove(handCard);
+
+                    // if card is Charge put update to field
+                    if (handCard.Ability_C == true) playerBoardCardList.Add(handCard);
+                }
+            }
+
+            // Use Item
+            foreach (var handCard in handCardList.OrderByDescending(o => o.Cost).Where(o => o.TypeOfCard == CardTypeEnum.ItemGreen || o.TypeOfCard == CardTypeEnum.ItemBlue || o.TypeOfCard == CardTypeEnum.ItemRed))
+            {
+                if(handCard.TypeOfCard == CardTypeEnum.ItemGreen)
+                {
+                    // Check If have monster on field
+                    if(playerBoardCardList.Count == 0)
+                    { }
+                }
+                else if(handCard.TypeOfCard == CardTypeEnum.ItemRed)
+                {
+                    
+                }
+                else if(handCard.TypeOfCard == CardTypeEnum.ItemBlue)
+                {
+                    
+                }
+            }
+        }
+        // Battle
+        if (playerBoardCardList.Count > 0)
+        {
+            foreach (var atkCard in playerBoardCardList.Where(o => o.Attack > 0))
+            {
+                var oppGuardMonList = opponentBoardCardList.Where(o => o.Ability_G == true && o.isDead == false);
+
+
+                var guardMon = oppGuardMonList.FirstOrDefault();
+                if (guardMon != null)
+                {
+                    // Atk Guard Monster
+                    guardMon.Defense = guardMon.Defense - atkCard.Attack;
+
+                    Order += "ATTACK " + atkCard.InstanceId + " " + guardMon.InstanceId + ";";
+                }
+                else
+                {
+                    Order += "ATTACK " + atkCard.InstanceId + " -1;";
+                }
+            }
+        }
+
+
+        if (Order == "") Order = "PASS";
+
+        Console.WriteLine(Order);
+
+    }
+
+}
